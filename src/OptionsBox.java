@@ -17,6 +17,7 @@ import java.util.logging.Logger;
  */
 public class OptionsBox extends JFrame implements ActionListener, NativeKeyListener, FocusListener {
     // GUI elements
+    JLabel errorLabel = new JLabel("", SwingConstants.CENTER);
     JLabel nameLabel = new JLabel("Directory name:");
     JTextField nameText = new JTextField("shots", 20);
     JLabel endLabel = new JLabel("Exit Key:");
@@ -32,10 +33,13 @@ public class OptionsBox extends JFrame implements ActionListener, NativeKeyListe
         // JFrame setup
         super("Startup Options");
         this.sPanel = sPanel;
-        setSize(400, 200);
+        setSize(400, 140);
         setResizable(false);
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         setLocation((screenSize.width - getWidth()) / 2, (screenSize.height - getHeight()) / 2);
+        setAlwaysOnTop(true);
+
+        errorLabel.setForeground(Color.red);
 
         // Grid Layout Setup
         getContentPane().setLayout(new GridBagLayout());
@@ -60,6 +64,11 @@ public class OptionsBox extends JFrame implements ActionListener, NativeKeyListe
 
         constraints.gridx = 0;
         constraints.gridy = 2;
+        constraints.gridwidth = 2;
+        getContentPane().add(errorLabel, constraints);
+
+        constraints.gridx = 0;
+        constraints.gridy = 3;
         constraints.gridwidth = 2;
         getContentPane().add(okButton, constraints);
 
@@ -90,10 +99,17 @@ public class OptionsBox extends JFrame implements ActionListener, NativeKeyListe
 
     // Set variables and hide this window if both parameters have been set
     public void actionPerformed(ActionEvent e) {
-        if (!nameText.getText().equals("") && !endText.getText().equals(originalEndText)) {
-            sPanel.dirName = nameText.getText();
-            sPanel.endKey = endInt;
-            setVisible(false);
+        if (!nameText.getText().equals("")) {
+            if (!endText.getText().equals(originalEndText)) {
+                sPanel.dirName = nameText.getText();
+                sPanel.endKey = endInt;
+                sPanel.editable = true;
+                setVisible(false);
+            } else {
+                errorLabel.setText("Please set an exit hotkey.");
+            }
+        } else {
+            errorLabel.setText("Please provide a name for this recording.");
         }
     }
 
@@ -112,10 +128,13 @@ public class OptionsBox extends JFrame implements ActionListener, NativeKeyListe
 
     public void focusGained(FocusEvent e) {
         endTextSelected = true;
+        endText.setText("Listening for key...");
     }
 
     public void focusLost(FocusEvent e) {
         endTextSelected = false;
+        if (endInt == 0)
+            endText.setText(originalEndText);
     }
 
     public void nativeKeyTyped(NativeKeyEvent e) {

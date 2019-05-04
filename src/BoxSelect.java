@@ -1,6 +1,7 @@
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.RoundRectangle2D;
 
 /**
  *  BoxSelect and SelectPanel are used to display a screen capture of the full display
@@ -10,11 +11,17 @@ import java.awt.event.*;
 public class BoxSelect extends JFrame {
     SelectPanel sPanel;
 
-    public BoxSelect() {
-        Toolkit kit = Toolkit.getDefaultToolkit();
-        Dimension screenSize = kit.getScreenSize();
+    public BoxSelect(GraphicsConfiguration conf) {
+        super(conf);
+        Rectangle screenRect = new Rectangle(0, 0, 0, 0);
+        for (GraphicsDevice gd : GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()) {
+            screenRect = screenRect.union(gd.getDefaultConfiguration().getBounds());
+        }
+//        Toolkit kit = Toolkit.getDefaultToolkit();
+//        Dimension screenSize = kit.getScreenSize();
         setUndecorated(true);
-        setSize(screenSize);
+//        setSize(screenSize);
+        setSize(screenRect.getSize());
         setResizable(false);
 
         sPanel = new SelectPanel(this);
@@ -31,6 +38,8 @@ public class BoxSelect extends JFrame {
 }
 
 class SelectPanel extends JPanel implements KeyListener, MouseListener, MouseMotionListener {
+    public boolean editable = false;
+
     BoxSelect frame;
     int x1, y1, x2, y2;                                                     // Opposite corners of the selection
     int pWidth, pHeight;                                                    // The dimensions of the frame
@@ -39,6 +48,10 @@ class SelectPanel extends JPanel implements KeyListener, MouseListener, MouseMot
     Image desktopImage;                                                     // A screenshot of the screen for selecting the rectangle
     Rectangle selectedRect;                                                 // The selected area
     Color washWhite = new Color(255, 255, 255, 100);           // Semi-transparent white overlay color
+    Color overlayGrey = new Color(100, 100, 100, 180);         // Semi-transparent grey overlay for instructions
+    RoundRectangle2D instructionsRect = new RoundRectangle2D.Float(50, 50, 300, 100, 10, 10);
+    Stroke thinStroke  = new BasicStroke(1);
+    Stroke thickStroke = new BasicStroke(3);
 
     public String dirName;
     public int endKey;
@@ -81,49 +94,60 @@ class SelectPanel extends JPanel implements KeyListener, MouseListener, MouseMot
     // Hide this frame, recapture the screen, and show the frame again
     public void refreshImage() {
         frame.setVisible(false);
-        desktopImage = robot.createScreenCapture(new Rectangle(0, 0, pWidth, pHeight));
+        Rectangle fullDisplayRect = new Rectangle(0, 0, 0, 0);
+        for (GraphicsDevice gd : GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()) {
+            fullDisplayRect = fullDisplayRect.union(gd.getDefaultConfiguration().getBounds());
+        }
+//        desktopImage = robot.createScreenCapture(new Rectangle(0, 0, pWidth, pHeight));
+        desktopImage = robot.createScreenCapture(fullDisplayRect);
         frame.setVisible(true);
     }
 
     // Handle exit, refresh, and start key presses
     public void keyPressed(KeyEvent e) {
-        switch (e.getKeyCode()) {
-            case KEY_EXIT:
-                System.out.println("Exit key pressed");
-                System.exit(0);
-                break;
-            case KEY_NEWCAP:
-                refreshImage();
-                break;
-            case KEY_ENTER:
-                new Screencapper(dirName, endKey, calculateRect(x1, y1, x2, y2));
-                frame.setVisible(false);
-                break;
+        if (editable) {
+            switch (e.getKeyCode()) {
+                case KEY_EXIT:
+                    System.out.println("Exit key pressed");
+                    System.exit(0);
+                    break;
+                case KEY_NEWCAP:
+                    refreshImage();
+                    break;
+                case KEY_ENTER:
+                    new Goliath(dirName, endKey, calculateRect(x1, y1, x2, y2));
+                    frame.setVisible(false);
+                    break;
+            }
         }
     }
 
     // Reset the selection to a 0x0 rectangle at the mouse position and redraw the box
     public void mousePressed(MouseEvent e) {
-        int mX = e.getX();
-        int mY = e.getY();
+        if (editable) {
+            int mX = e.getX();
+            int mY = e.getY();
 
-        x1 = mX;
-        y1 = mY;
-        x2 = mX;
-        y2 = mY;
+            x1 = mX;
+            y1 = mY;
+            x2 = mX;
+            y2 = mY;
 
-        repaint();
+            repaint();
+        }
     }
 
     // Set one corner of the box to the mouse position, leaving the other corner fixed
     public void mouseDragged(MouseEvent e) {
-        int mX = e.getX();
-        int mY = e.getY();
+        if (editable) {
+            int mX = e.getX();
+            int mY = e.getY();
 
-        x2 = mX;
-        y2 = mY;
+            x2 = mX;
+            y2 = mY;
 
-        repaint();
+            repaint();
+        }
     }
 
     // Use the two corners to return the contained Rectangle
@@ -137,10 +161,21 @@ class SelectPanel extends JPanel implements KeyListener, MouseListener, MouseMot
             offscreenGraphics.drawImage(desktopImage, 0, 0, null);
 
             selectedRect = calculateRect(x1, y1, x2, y2);
+            offscreenGraphics.setStroke(thinStroke);
             offscreenGraphics.setColor(washWhite);
             offscreenGraphics.fill(selectedRect);
             offscreenGraphics.setColor(Color.white);
             offscreenGraphics.draw(selectedRect);
+
+            offscreenGraphics.setColor(overlayGrey);
+            offscreenGraphics.setStroke(thickStroke);
+            offscreenGraphics.fill(instructionsRect);
+            offscreenGraphics.setColor(Color.white);
+            offscreenGraphics.draw(instructionsRect);
+            offscreenGraphics.drawString("Select the area to capture", 80, 80);
+            offscreenGraphics.drawString("Press 'Space' to refresh", 80, 110);
+            offscreenGraphics.drawString("Press 'Enter' to begin capturing", 80, 125);
+            offscreenGraphics.drawString("Press 'Esc' to exit", 80, 140);
 
             g.drawImage(offscreenImage, 0, 0, null);
         }

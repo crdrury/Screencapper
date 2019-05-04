@@ -9,9 +9,9 @@ import java.io.File;
 import java.io.IOException;
 
 /**
- *   Screencapper contains the main recording loop for the program.
+ *   Goliath.class contains the main recording loop for the program.
  */
-public class Screencapper implements NativeKeyListener, Runnable {
+public class Goliath implements NativeKeyListener, Runnable {
     Robot robot;
     Thread captureThread;
     boolean isRunning;
@@ -21,10 +21,12 @@ public class Screencapper implements NativeKeyListener, Runnable {
     String dirName;                         // Name of the directory for saving shots
     int endKey;                             // Hotkey to end the recording
     long startTime;                         // Time when recording began in ms
+    static Point monitorOffset;
 
-    public Screencapper(String dirName, int endKey, Rectangle capRect) {
+    public Goliath(String dirName, int endKey, Rectangle capRect) {
         // Store capture area, output directory, and end hotkey
         this.capRect = capRect;
+        this.capRect.translate(monitorOffset.x, monitorOffset.y);
         this.dirName = dirName;
         this.endKey = endKey;
 
@@ -86,7 +88,7 @@ public class Screencapper implements NativeKeyListener, Runnable {
     }
 
     // Add leading 0s to match the provided string length
-    // For instance, formateShotNum(25, 5) returns "00025"
+    // For instance, formatShotNum(25, 5) returns "00025"
     public static String formatShotNum(int s, int length) {
         String sString = s + "";
         String result = "";
@@ -108,9 +110,20 @@ public class Screencapper implements NativeKeyListener, Runnable {
         return buffer;
     }
 
-    // Program entry point. Start with the selection screen and the startup options box
+    // Program entry point. Start with the selection screen and the startup options box. Includes some calculations to find the leftmost monitor and save offset values
     public static void main(String[] args) {
-        BoxSelect b = new BoxSelect();
+        int leftmostMonitorIndex  = 0;
+        GraphicsDevice[] monitors = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices();
+        if (monitors.length > 1) {
+            for (int i = 1; i < monitors.length; i++) {
+                if (monitors[i].getDefaultConfiguration().getBounds().x < monitors[leftmostMonitorIndex].getDefaultConfiguration().getBounds().x) {
+                    leftmostMonitorIndex = i;
+                }
+            }
+        }
+        monitorOffset = monitors[leftmostMonitorIndex].getDefaultConfiguration().getBounds().getLocation();
+
+        BoxSelect b = new BoxSelect(monitors[leftmostMonitorIndex].getDefaultConfiguration());
         new OptionsBox(b.sPanel);
     }
 
